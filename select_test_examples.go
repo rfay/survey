@@ -87,14 +87,14 @@ func TestCLIAsk(t *testing.T) {
 		Message: "Choose a color:",
 		Options: []string{"red", "blue", "green"},
 	}
-	sprompt.WithStdio(Stdio(c))
 
-	// Experimental, doesn't seem to help
-	DefaultAskOptions = AskOptions{
-		Stdio: Stdio(c),
+	setStdioFunc := func(options *survey.AskOptions) error {
+		options.Stdio = Stdio(c)
+
+		return nil
 	}
 
-	err = survey.AskOne(sprompt, &color, nil)
+	err = survey.AskOne(sprompt, &color, nil, setStdioFunc)
 	require.Nil(t, err)
 	require.Equal(t, "blue", color)
 
