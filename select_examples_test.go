@@ -9,6 +9,7 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1/terminal"
 
 	"os/exec"
+	"os"
 )
 
 // This test uses Select's Prompt() directly, which it seems we shouldn't need to do.
@@ -128,6 +129,93 @@ func TestSimpleBinary(t *testing.T) {
 	}()
 
 	cmd := exec.Command("go", "run", "./examples/simple.go")
+	cmd.Stdin = c.Tty()
+	cmd.Stdout = c.Tty()
+	cmd.Stderr = c.Tty()
+
+	err = cmd.Run()
+	require.Nil(t, err)
+
+	// Close the slave end of the pty, and read the remaining bytes from the master end.
+	c.Tty().Close()
+	<-donec
+
+	// Dump the terminal's screen.
+	t.Log(expect.StripTrailingEmptyLines(state.String()))
+}
+
+
+
+func TestSimple2SelectBinary(t *testing.T) {
+	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
+	// sequences (i.e. cursor position report).
+	c, state, err := vt10x.NewVT10XConsole()
+	require.Nil(t, err)
+	defer c.Close()
+
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		c.ExpectString("What is your name?")
+		c.SendLine("Johnny Appleseed II")
+		c.ExpectString("Choose a color")
+		c.SendLine("blue")
+		c.ExpectString("Choose your extras")
+		c.Send("bacon")
+		c.ExpectEOF()
+	}()
+
+	cmd := exec.Command("go", "run", "./examples/simple_2select.go")
+	cmd.Stdin = c.Tty()
+	cmd.Stdout = c.Tty()
+	cmd.Stderr = c.Tty()
+
+	err = cmd.Run()
+	require.Nil(t, err)
+
+	// Close the slave end of the pty, and read the remaining bytes from the master end.
+	c.Tty().Close()
+	<-donec
+
+	// Dump the terminal's screen.
+	t.Log(expect.StripTrailingEmptyLines(state.String()))
+}
+
+func TestDdevBinary(t *testing.T) {
+
+	accessKeyID := os.Getenv("DDEV_DRUD_S3_AWS_ACCESS_KEY_ID")
+	secretAccessKey := os.Getenv("DDEV_DRUD_S3_AWS_SECRET_ACCESS_KEY")
+	if accessKeyID == "" || secretAccessKey == "" {
+		t.Skip("No DDEV_DRUD_S3_AWS_ACCESS_KEY_ID and  DDEV_DRUD_S3_AWS_SECRET_ACCESS_KEY env vars have been set. Skipping DrudS3 specific test.")
+	}
+
+	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
+	// sequences (i.e. cursor position report).
+	c, state, err := vt10x.NewVT10XConsole()
+	require.Nil(t, err)
+	defer c.Close()
+
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		c.ExpectString("Project name")
+		c.SendLine("d7-kickstart")
+		c.ExpectString("Docroot Location")
+		c.SendLine("")
+		c.ExpectString("Project Type")
+		c.SendLine("")
+		c.ExpectString("AWS access key id")
+		c.SendLine(accessKeyID)
+		c.ExpectString("AWS secret access key")
+		c.SendLine(secretAccessKey)
+		c.ExpectString("AWS S3 Bucket Name")
+		c.SendLine("ddev-local-tests")
+		c.ExpectString("Choose an environment")
+		c.SendLine("production")
+		c.ExpectEOF()
+	}()
+
+	cmd := exec.Command("ddev", "config", "drud-s3")
 	cmd.Stdin = c.Tty()
 	cmd.Stdout = c.Tty()
 	cmd.Stderr = c.Tty()
