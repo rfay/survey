@@ -8,6 +8,7 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1"
 	"gopkg.in/AlecAivazis/survey.v1/terminal"
 
+	"os/exec"
 )
 
 // This test uses Select's Prompt() directly, which it seems we shouldn't need to do.
@@ -103,6 +104,40 @@ func TestCLIAsk(t *testing.T) {
 	<-donec
 
 	println("color = ", color)
+
+	// Dump the terminal's screen.
+	t.Log(expect.StripTrailingEmptyLines(state.String()))
+}
+
+
+func TestSimpleBinary(t *testing.T) {
+	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
+	// sequences (i.e. cursor position report).
+	c, state, err := vt10x.NewVT10XConsole()
+	require.Nil(t, err)
+	defer c.Close()
+
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		c.ExpectString("What is your name?")
+		c.SendLine("Johnny Appleseed II")
+		c.ExpectString("Choose a color")
+		c.SendLine("blue")
+		c.ExpectEOF()
+	}()
+
+	cmd := exec.Command("go", "run", "./examples/simple.go")
+	cmd.Stdin = c.Tty()
+	cmd.Stdout = c.Tty()
+	cmd.Stderr = c.Tty()
+
+	err = cmd.Run()
+	require.Nil(t, err)
+
+	// Close the slave end of the pty, and read the remaining bytes from the master end.
+	c.Tty().Close()
+	<-donec
 
 	// Dump the terminal's screen.
 	t.Log(expect.StripTrailingEmptyLines(state.String()))
