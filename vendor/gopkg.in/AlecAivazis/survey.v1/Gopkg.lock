@@ -64,20 +64,9 @@
   packages = ["unix"]
   revision = "9527bec2660bd847c050fda93a0f0c6dee0800bb"
 
-[[projects]]
-  name = "gopkg.in/AlecAivazis/survey.v1"
-  packages = [
-    ".",
-    "core",
-    "terminal",
-    "tests/util"
-  ]
-  revision = "17861e192dc11fd2f5081df1932c94cce262fa1e"
-  version = "v1.6.1"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "76ed39aa36fe93f53db6fb847c26d35497c55978fd84abaef67a9da3c1456495"
+  inputs-digest = "d9de26369f5ab6ec0786daa907bd042f189d5fd3e9dda6acdbe098ed505e19b3"
   solver-name = "gps-cdcl"
   solver-version = 1
