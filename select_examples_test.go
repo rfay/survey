@@ -1,15 +1,15 @@
 package survey
 
 import (
+	"github.com/Netflix/go-expect"
 	"github.com/hinshun/vt10x"
 	"github.com/stretchr/testify/require"
-	"github.com/Netflix/go-expect"
-	"testing"
 	"gopkg.in/AlecAivazis/survey.v1"
 	"gopkg.in/AlecAivazis/survey.v1/terminal"
+	"testing"
 
-	"os/exec"
 	"os"
+	"os/exec"
 )
 
 // This test uses Select's Prompt() directly, which it seems we shouldn't need to do.
@@ -35,8 +35,8 @@ func TestCLIPrompt(t *testing.T) {
 		//c.SendLine("blue")
 
 		// Or even use up-and-down arrow stuff.
-		c.Send(string(terminal.KeyBackspace))  // back off the "b" we already sent
-		c.Send(string(terminal.KeyArrowDown))  // Arrow down to "blue"
+		c.Send(string(terminal.KeyBackspace)) // back off the "b" we already sent
+		c.Send(string(terminal.KeyArrowDown)) // Arrow down to "blue"
 		//c.Send(string(terminal.KeyArrowUp))
 
 		c.SendLine("") // Send what we have
@@ -63,8 +63,6 @@ func TestCLIPrompt(t *testing.T) {
 	// Dump the terminal's screen.
 	t.Log(expect.StripTrailingEmptyLines(state.String()))
 }
-
-
 
 // This one *attempts* to use the documented survey.AskOne(), but I can't seem to get the
 // console working right.
@@ -110,7 +108,6 @@ func TestCLIAsk(t *testing.T) {
 	t.Log(expect.StripTrailingEmptyLines(state.String()))
 }
 
-
 func TestSimpleBinary(t *testing.T) {
 	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
 	// sequences (i.e. cursor position report).
@@ -144,8 +141,6 @@ func TestSimpleBinary(t *testing.T) {
 	t.Log(expect.StripTrailingEmptyLines(state.String()))
 }
 
-
-
 func TestSimple2SelectBinary(t *testing.T) {
 	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
 	// sequences (i.e. cursor position report).
@@ -161,11 +156,81 @@ func TestSimple2SelectBinary(t *testing.T) {
 		c.ExpectString("Choose a color")
 		c.SendLine("blue")
 		c.ExpectString("Choose your extras")
-		c.Send("bacon")
+		c.SendLine("bacon")
 		c.ExpectEOF()
 	}()
 
 	cmd := exec.Command("go", "run", "./examples/simple_2select.go")
+	cmd.Stdin = c.Tty()
+	cmd.Stdout = c.Tty()
+	cmd.Stderr = c.Tty()
+
+	err = cmd.Run()
+	require.Nil(t, err)
+
+	// Close the slave end of the pty, and read the remaining bytes from the master end.
+	c.Tty().Close()
+	<-donec
+
+	// Dump the terminal's screen.
+	t.Log(expect.StripTrailingEmptyLines(state.String()))
+}
+
+func TestSimpleBinarySelectInMiddle(t *testing.T) {
+	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
+	// sequences (i.e. cursor position report).
+	c, state, err := vt10x.NewVT10XConsole()
+	require.Nil(t, err)
+	defer c.Close()
+
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		c.ExpectString("What is your name?")
+		c.SendLine("Johnny Appleseed II")
+		c.ExpectString("Choose a color")
+		c.SendLine("blue")
+		c.ExpectString("Choose your extras")
+		c.SendLine("bacon")
+		c.ExpectEOF()
+	}()
+
+	cmd := exec.Command("go", "run", "./examples/simple_1select_input_follow.go")
+	cmd.Stdin = c.Tty()
+	cmd.Stdout = c.Tty()
+	cmd.Stderr = c.Tty()
+
+	err = cmd.Run()
+	require.Nil(t, err)
+
+	// Close the slave end of the pty, and read the remaining bytes from the master end.
+	c.Tty().Close()
+	<-donec
+
+	// Dump the terminal's screen.
+	t.Log(expect.StripTrailingEmptyLines(state.String()))
+}
+
+func TestSimpleBinarySelectAtEnd(t *testing.T) {
+	// Multiplex stdin/stdout to a virtual terminal to respond to ANSI escape
+	// sequences (i.e. cursor position report).
+	c, state, err := vt10x.NewVT10XConsole()
+	require.Nil(t, err)
+	defer c.Close()
+
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		c.ExpectString("What is your name?")
+		c.SendLine("Johnny Appleseed II")
+		c.ExpectString("Choose your extras")
+		c.SendLine("bacon")
+		c.ExpectString("Choose a color")
+		c.SendLine("blue")
+		c.ExpectEOF()
+	}()
+
+	cmd := exec.Command("go", "run", "./examples/simple_1select_input_precedes.go")
 	cmd.Stdin = c.Tty()
 	cmd.Stdout = c.Tty()
 	cmd.Stderr = c.Tty()
